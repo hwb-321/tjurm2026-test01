@@ -1,39 +1,75 @@
 #include "tests.h"
+#include <algorithm>
+#include <cmath>
 
 // 练习1，实现库函数strlen
-int my_strlen(char *str) {
-    /**
-     * 统计字符串的长度。
-     */
+int my_strlen(char *str)
+{
+    if (!str)
+        return 0;
 
-    // IMPLEMENT YOUR CODE HERE
-    return 0;
+    int n = 0;
+    while (*str)
+    {
+        ++n;
+        ++str;
+    }
+
+    return n;
 }
 
-
 // 练习2，实现库函数strcat
-void my_strcat(char *str_1, char *str_2) {
+void my_strcat(char *str_1, char *str_2)
+{
     /**
      * 将字符串str_2拼接到str_1之后，我们保证str_1指向的内存空间足够用于添加str_2。
      * 注意结束符'\0'的处理。
      */
 
-    // IMPLEMENT YOUR CODE HERE
+    if (!str_1 || !str_2)
+        return;
+
+    char *p = str_1;
+    while (*p)
+        ++p;
+
+    const char *q = str_2;
+    while ((*p++ = *q++) != '\0')
+        ;
 }
 
-
 // 练习3，实现库函数strstr
-char* my_strstr(char *s, char *p) {
+char *my_strstr(char *s, char *p)
+{
     /**
      * 在字符串s中搜索字符串p，如果存在就返回第一次找到的地址，不存在就返回空指针(0)。
      * 例如：
      * s = "123456", p = "34"，应该返回指向字符'3'的指针。
      */
 
-    // IMPLEMENT YOUR CODE HERE
-    return 0;
-}
+    if (!s || !p)
+        return 0;
 
+    for (char *i = s; *i != '\0'; ++i)
+    {
+        char *a = i;
+        char *b = p;
+        while (*a && *b && (*a == *b))
+        {
+            ++a;
+            ++b;
+        }
+        if (*b == '\0')
+            return i;
+
+        if (*a == '\0')
+        {
+            // s 到尾都不够匹配，提前结束
+            return nullptr;
+        }
+    }
+    return nullptr;
+}
 
 /**
  * ================================= 背景知识 ==================================
@@ -73,9 +109,9 @@ char* my_strstr(char *s, char *p) {
  *   理解了图片的存储之后，再开始编写代码。
  */
 
-
 // 练习4，将彩色图片(rgb)转化为灰度图片
-void rgb2gray(float *in, float *out, int h, int w) {
+void rgb2gray(float *in, float *out, int h, int w)
+{
     /**
      * 编写这个函数，将一张彩色图片转化为灰度图片。以下是各个参数的含义：
      * (1) float *in:  指向彩色图片对应的内存区域（或者说数组）首地址的指针。
@@ -95,12 +131,28 @@ void rgb2gray(float *in, float *out, int h, int w) {
      * (2) 内存的访问。
      */
 
-    // IMPLEMENT YOUR CODE HERE
-    // ...
+    if (!in || !out || h <= 0 || w <= 0)
+        return;
+
+    const int stride_rgb = 3;
+    const float wr = 0.2989f, wg = 0.5870f, wb = 0.1140f;
+
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x)
+        {
+            int idx_rgb = (y * w + x) * stride_rgb;
+            float R = in[idx_rgb + 0];
+            float G = in[idx_rgb + 1];
+            float B = in[idx_rgb + 2];
+            out[y * w + x] = wb * B + wg * G + wr * R;
+        }
+    }
 }
 
 // 练习5，实现图像处理算法 resize：缩小或放大图像
-void resize(float *in, float *out, int h, int w, int c, float scale) {
+void resize(float *in, float *out, int h, int w, int c, float scale)
+{
     /**
      * 图像处理知识：
      *  1.单线性插值法
@@ -196,14 +248,59 @@ void resize(float *in, float *out, int h, int w, int c, float scale) {
      *        所以需要对其进行边界检查
      */
 
-    int new_h = h * scale, new_w = w * scale;
-    // IMPLEMENT YOUR CODE HERE
+    if (!in || !out || h <= 0 || w <= 0 || c <= 0 || scale <= 0.0f)
+        return;
 
+    int new_h = std::max(1, (int)(h * scale));
+    int new_w = std::max(1, (int)(w * scale));
+
+    // 遍历目标图每个像素
+    for (int y = 0; y < new_h; ++y)
+    {
+        // 源坐标（连续域）
+        float y0 = static_cast<float>(y) / scale;
+        int y1 = static_cast<int>(std::floor(y0));
+        int y2 = std::min(y1 + 1, h - 1);
+        float dy = y0 - y1;
+        y1 = std::clamp(y1, 0, h - 1);
+
+        for (int x = 0; x < new_w; ++x)
+        {
+            float x0 = static_cast<float>(x) / scale;
+            int x1 = static_cast<int>(std::floor(x0));
+            int x2 = std::min(x1 + 1, w - 1);
+            float dx = x0 - x1;
+            x1 = std::clamp(x1, 0, w - 1);
+
+            // 四邻居权重
+            float w11 = (1.0f - dx) * (1.0f - dy); // P1 (x1,y1)
+            float w21 = (dx) * (1.0f - dy);        // P2 (x2,y1)
+            float w12 = (1.0f - dx) * (dy);        // P3 (x1,y2)
+            float w22 = (dx) * (dy);               // P4 (x2,y2)
+
+            // 计算每个通道
+            int out_base = (y * new_w + x) * c;
+            int p11 = (y1 * w + x1) * c;
+            int p21 = (y1 * w + x2) * c;
+            int p12 = (y2 * w + x1) * c;
+            int p22 = (y2 * w + x2) * c;
+
+            for (int k = 0; k < c; ++k)
+            {
+                float Q =
+                    in[p11 + k] * w11 +
+                    in[p21 + k] * w21 +
+                    in[p12 + k] * w12 +
+                    in[p22 + k] * w22;
+                out[out_base + k] = Q;
+            }
+        }
+    }
 }
 
-
 // 练习6，实现图像处理算法：直方图均衡化
-void hist_eq(float *in, int h, int w) {
+void hist_eq(float *in, int h, int w)
+{
     /**
      * 将输入图片进行直方图均衡化处理。参数含义：
      * (1) float *in: 输入的灰度图片。
@@ -220,5 +317,44 @@ void hist_eq(float *in, int h, int w) {
      * (3) 使用数组来实现灰度级 => 灰度级的映射
      */
 
-    // IMPLEMENT YOUR CODE HERE
+    if (!in || h <= 0 || w <= 0)
+        return;
+
+    const int L = 256;
+    const int N = h * w;
+
+    // 1) 统计直方图（将浮点强度就近取整并夹到 0..255）
+    int hist[L] = {0};
+    for (int i = 0; i < N; ++i)
+    {
+        int g = static_cast<int>(std::lround(in[i]));
+        g = std::clamp(g, 0, 255);
+        ++hist[g];
+    }
+
+    // 2) 计算累积分布函数（CDF）
+    double cdf[L] = {0.0};
+    double cum = 0.0;
+    for (int i = 0; i < L; ++i)
+    {
+        cum += hist[i];
+        cdf[i] = cum / static_cast<double>(N);
+    }
+
+    // 3) 构建查找表（LUT）：s = round(cdf * 255)
+    unsigned char lut[L];
+    for (int i = 0; i < L; ++i)
+    {
+        int v = static_cast<int>(std::lround(cdf[i] * 255.0));
+        v = std::clamp(v, 0, 255);
+        lut[i] = static_cast<unsigned char>(v);
+    }
+
+    // 4) 应用映射（原地覆盖）
+    for (int i = 0; i < N; ++i)
+    {
+        int g = static_cast<int>(std::lround(in[i]));
+        g = std::clamp(g, 0, 255);
+        in[i] = static_cast<float>(lut[g]);
+    }
 }
